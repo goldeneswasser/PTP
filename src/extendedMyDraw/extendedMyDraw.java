@@ -13,9 +13,12 @@ import java.awt.Container;
 import java.awt.Dimension;
 import java.awt.FlowLayout;
 import java.awt.Graphics;
+import java.awt.Image;
 import java.awt.Point;
 import java.awt.event.ActionEvent;
 import java.awt.event.ActionListener;
+import java.awt.event.ComponentEvent;
+import java.awt.event.ComponentListener;
 import java.awt.event.ItemEvent;
 import java.awt.event.ItemListener;
 import java.awt.event.MouseAdapter;
@@ -23,12 +26,17 @@ import java.awt.event.MouseEvent;
 import java.awt.event.MouseMotionListener;
 import java.awt.event.WindowAdapter;
 import java.awt.event.WindowEvent;
+import java.awt.image.BufferedImage;
+import java.awt.image.ImageObserver;
+import java.io.File;
+import java.io.IOException;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Map.Entry;
 
+import javax.imageio.ImageIO;
 import javax.swing.*;
 import javax.swing.colorchooser.AbstractColorChooserPanel;
 import javax.swing.colorchooser.ColorSelectionModel;
@@ -76,6 +84,9 @@ class DrawGUI extends JFrame {
 	JTextField lower_right_y;
 	HashMap<String, Color> _colorList;
 	HashMap<Color, String> _colorListr;
+	BufferedImage image;
+	Graphics BufferedImageGraphics;
+	
 
 	/**
 	 * The GUI constructor does all the work of creating the GUI and setting up
@@ -144,9 +155,12 @@ class DrawGUI extends JFrame {
 		JButton draw_oval = new JButton("Oval zeichnen");
 		JButton draw_poly = new JButton("Polygonzug zeichnen");
 
-		// Create two buttons
+		// Create four buttons
+		JButton auto = new JButton("Auto");
+		JButton save = new JButton("Save");
 		JButton clear = new JButton("Clear");
 		JButton quit = new JButton("Quit");
+
 
 		// Set a LayoutManager, and add the choosers and buttons to the window.
 		this.getContentPane().setLayout(new FlowLayout(FlowLayout.RIGHT, 10, 5));
@@ -154,8 +168,8 @@ class DrawGUI extends JFrame {
 		this.add(shape_chooser);
 		this.add(new JLabel("Color:"));
 		this.add(color_chooser);
-		this.add(window_height);
 		this.add(window_width);
+		this.add(window_height);
 		this.add(window_size);
 		this.add(get_window_size);
 		this.add(color_changer);
@@ -170,8 +184,15 @@ class DrawGUI extends JFrame {
 		this.add(draw_rect);
 		this.add(draw_oval);
 		this.add(draw_poly);
+		this.add(auto);
+		this.add(save);
 		this.add(clear);
 		this.add(quit);
+		
+		upper_left_x.setText("0");
+		upper_left_y.setText("0");
+		lower_right_x.setText("100");
+		lower_right_y.setText("100");
 
 		// Here's a local class used for action listeners for the buttons
 		class DrawActionListener implements ActionListener {
@@ -194,6 +215,7 @@ class DrawGUI extends JFrame {
 		// depending on the shape mode currently set
 		class ShapeManager implements ItemListener {
 			DrawGUI gui;
+			Graphics contentPaneGraphics;
 
 			abstract class ShapeDrawer extends MouseAdapter implements MouseMotionListener {
 				public void mouseMoved(MouseEvent e) {
@@ -213,17 +235,22 @@ class DrawGUI extends JFrame {
 					Graphics g = gui.getGraphics();
 					int x = e.getX(), y = e.getY();
 					g.setColor(gui.color);
+					BufferedImageGraphics.setColor(gui.color);
 					g.setPaintMode();
 					g.drawLine(lastx, lasty, x, y);
+					BufferedImageGraphics.drawLine(lastx, lasty, x, y);
 					lastx = x;
 					lasty = y;
 				}
 				
 				public void doDraw (List<Point> points) {
-					Graphics g = gui.getGraphics();
+					Graphics g = contentPaneGraphics;
 					lastx = points.get(0).x;
 					lasty = points.get(0).y;
+					g.setColor(gui.color);
+					BufferedImageGraphics.setColor(gui.color);
 					for(Point aktuellerPunkt : points) {
+						BufferedImageGraphics.drawLine(lastx, lasty, aktuellerPunkt.x, aktuellerPunkt.y);
 						g.drawLine(lastx, lasty, aktuellerPunkt.x, aktuellerPunkt.y);
 						lastx = aktuellerPunkt.x;
 						lasty = aktuellerPunkt.y;
@@ -250,6 +277,7 @@ class DrawGUI extends JFrame {
 						// first undraw a rubber rect
 						g.setXORMode(gui.color);
 						g.setColor(gui.getBackground());
+						BufferedImageGraphics.setColor(gui.getBackground());
 						doDraw(pressx, pressy, lastx, lasty, g);
 						lastx = -1;
 						lasty = -1;
@@ -268,6 +296,7 @@ class DrawGUI extends JFrame {
 					// these commands set the rubberband mode
 					g.setXORMode(gui.color);
 					g.setColor(gui.getBackground());
+					BufferedImageGraphics.setColor(gui.getBackground());
 					if (lastx != -1) {
 						// first undraw previous rubber rect
 						doDraw(pressx, pressy, lastx, lasty, g);
@@ -286,7 +315,10 @@ class DrawGUI extends JFrame {
 					int w = Math.abs(x1 - x0);
 					int h = Math.abs(y1 - y0);
 					// draw rectangle
+					g.setColor(gui.color);
+					BufferedImageGraphics.setColor(gui.color);
 					g.drawRect(x, y, w, h);
+					BufferedImageGraphics.drawRect(x, y, w, h);
 				}
 			}
 
@@ -298,7 +330,10 @@ class DrawGUI extends JFrame {
 					int w = Math.abs(x1 - x0);
 					int h = Math.abs(y1 - y0);
 					// draw oval instead of rectangle
+					g.setColor(gui.color);
+					BufferedImageGraphics.setColor(gui.color);
 					g.drawOval(x, y, w, h);
+					BufferedImageGraphics.drawOval(x, y, w, h);
 				}
 			}
 
@@ -309,6 +344,7 @@ class DrawGUI extends JFrame {
 
 			public ShapeManager(DrawGUI itsGui) {
 				gui = itsGui;
+				contentPaneGraphics = gui.getContentPane().getGraphics();
 				// default: scribble mode
 				currentDrawer = scribbleDrawer;
 				// activate scribble drawer
@@ -343,16 +379,41 @@ class DrawGUI extends JFrame {
 
 			public void drawRectangle(Point upper_left, Point lower_right) {
 				rectDrawer.doDraw((int) upper_left.getX(), (int) upper_left.getY(), (int) lower_right.getX(),
-						(int) lower_right.getY(), gui.getGraphics());
+						(int) lower_right.getY(), contentPaneGraphics);
 			}
 			
 			 public void drawOval(Point upper_left, Point lower_right) {
 				 ovalDrawer.doDraw((int) upper_left.getX(), (int) upper_left.getY(), (int) lower_right.getX(),
-							(int) lower_right.getY(), gui.getGraphics());
+							(int) lower_right.getY(), contentPaneGraphics);
 			 }
 			 
 			 public void drawPolyLine(List<Point> points) {
-				
+				scribbleDrawer.doDraw(points);
+			 }
+			 
+			 public void autoDraw() {
+					Color oldColor = color;
+					
+					Point upper_left = new Point();
+					upper_left.setLocation(0,0);
+					Point lower_right = new Point();
+					lower_right.setLocation(111,111);
+					List<Point> pointList = new ArrayList<Point>();
+					pointList.add(lower_right);
+					pointList.add(upper_left);
+					
+					color = Color.black;
+					new ShapeManager((DrawGUI) ourJFrame).drawPolyLine(pointList);
+					color = Color.red;
+					new ShapeManager((DrawGUI) ourJFrame).drawOval(upper_left, lower_right);
+					color = Color.blue;
+					new ShapeManager((DrawGUI) ourJFrame).drawRectangle(upper_left, lower_right);
+					color = Color.green;
+					lower_right.setLocation(111,0);
+					upper_left.setLocation(0, 111);
+					new ShapeManager((DrawGUI) ourJFrame).drawPolyLine(pointList);
+					
+					color = oldColor;
 			 }
 			 
 		}
@@ -381,6 +442,42 @@ class DrawGUI extends JFrame {
 		this.addWindowListener(new WindowAdapter() {
 			public void windowClosing(WindowEvent e) {
 				app.doCommand("quit");
+			} 
+
+			
+		});
+		WindowAdapter wa =  new WindowAdapter(){
+			public void onWindowResize (WindowEvent e) {
+				System.out.println("hallo");
+			}
+		};
+		
+		ourJFrame.addComponentListener(new ComponentListener() {
+			
+			@Override
+			public void componentShown(ComponentEvent e) {
+				// TODO Auto-generated method stub
+				
+			}
+			
+			@Override
+			public void componentResized(ComponentEvent e) {
+				image = new BufferedImage(ourJFrame.getContentPane().getWidth(), ourJFrame.getContentPane().getHeight(), BufferedImage.TYPE_INT_RGB);
+				BufferedImageGraphics = image.createGraphics();
+				BufferedImageGraphics.fillRect(0, 0, ourJFrame.getContentPane().getWidth(), ourJFrame.getContentPane().getHeight());
+				
+			}
+			
+			@Override
+			public void componentMoved(ComponentEvent e) {
+				// TODO Auto-generated method stub
+				
+			}
+			
+			@Override
+			public void componentHidden(ComponentEvent e) {
+				// TODO Auto-generated method stub
+				
 			}
 		});
 
@@ -389,12 +486,12 @@ class DrawGUI extends JFrame {
 
 			public void actionPerformed(ActionEvent e) {
 				if (e.getSource().equals(window_size)) {
-					ourJFrame.setSize(Integer.parseInt(window_width.getText()),
+					ourJFrame.getContentPane().setSize(Integer.parseInt(window_width.getText()),
 							Integer.parseInt(window_height.getText()));
 				}
 				if (e.getSource().equals(get_window_size)) {
-					window_width.setText("" + ourJFrame.getWidth());
-					window_height.setText("" + ourJFrame.getHeight());
+					window_width.setText("" + ourJFrame.getContentPane().getWidth());
+					window_height.setText("" + ourJFrame.getContentPane().getHeight());
 				}
 				if (e.getSource().equals(set_draw_color)) {
 					try {
@@ -415,10 +512,10 @@ class DrawGUI extends JFrame {
 					}
 				}
 				if (e.getSource().equals(get_window_color)) {
-					if (ourJFrame.getBackground().equals(Color.white)) {
+					if (ourJFrame.getContentPane().getBackground().equals(Color.white)) {
 						color_changer.setText("white");
 					} else {
-						color_changer.setText(_colorListr.get(ourJFrame.getBackground()));
+						color_changer.setText(_colorListr.get(ourJFrame.getContentPane().getBackground()));
 					}
 				}
 				if (e.getSource().equals(draw_rect)) {
@@ -440,11 +537,25 @@ class DrawGUI extends JFrame {
 					upper_left.setLocation(Integer.parseInt(upper_left_x.getText()),Integer.parseInt(upper_left_y.getText()));
 					Point lower_right = new Point();
 					lower_right.setLocation(Integer.parseInt(lower_right_x.getText()),Integer.parseInt(lower_right_y.getText()));
-					List<Point> pointList = new List<Point>();
+					List<Point> pointList = new ArrayList<Point>();
+					pointList.add(lower_right);
+					pointList.add(upper_left);
 					
-					new ShapeManager((DrawGUI) ourJFrame).drawPolyLine(upper_left, lower_right);
+					new ShapeManager((DrawGUI) ourJFrame).drawPolyLine(pointList);
+				}
+				if(e.getSource().equals(auto)) {
+					new ShapeManager((DrawGUI) ourJFrame).autoDraw();
+				}
+				if (e.getSource().equals(save)) {
+					try {
+						writeImage(getDrawing(), "wunderschoen.bmp");
+					} catch (IOException e1) {
+						// TODO Auto-generated catch block
+						e1.printStackTrace();
+					}
 				}
 			}
+
 
 		}
 
@@ -458,12 +569,17 @@ class DrawGUI extends JFrame {
 		draw_rect.addActionListener(bL);
 		draw_oval.addActionListener(bL);
 		draw_poly.addActionListener(bL);
+		auto.addActionListener(bL);
+		save.addActionListener(bL);
 
 		// Finally, set the size of the window, and pop it up
 		this.setSize(500, 400);
 		this.setBackground(Color.white);
 		this.show();
-
+		
+		image = new BufferedImage(ourJFrame.getContentPane().getWidth(), ourJFrame.getContentPane().getHeight(), BufferedImage.TYPE_INT_RGB);
+		BufferedImageGraphics = image.createGraphics();
+		BufferedImageGraphics.fillRect(0, 0, ourJFrame.getContentPane().getWidth(), ourJFrame.getContentPane().getHeight());
 	}
 
 	private void setFGColor(String new_color) throws ColorException {
@@ -478,9 +594,9 @@ class DrawGUI extends JFrame {
 		HashMap<String, Color> white = new HashMap();
 		white.put("white", Color.white);
 		if (_colorList.containsKey(new_color)) {
-			ourJFrame.setBackground(_colorList.get(new_color));
+			ourJFrame.getContentPane().setBackground(_colorList.get(new_color));
 		} else if (white.containsKey(new_color)) {
-			ourJFrame.setBackground(Color.white);
+			ourJFrame.getContentPane().setBackground(Color.white);
 		} else {
 			throw new ColorException();
 		}
@@ -491,5 +607,26 @@ class DrawGUI extends JFrame {
 			System.out.println("Color nicht vorhanden.");
 		}
 	}
+	
+	 public Image getDrawing() throws IOException {
+		 		 return image;
+	 }
+	 
+	 public void write(Graphics g) {
+		 g.drawImage(image, ourJFrame.getContentPane().getWidth(), ourJFrame.getContentPane().getHeight(), null);
+	 }
+	 
+	 public void clear() {
+		 app.doCommand("clear");
+	 }
+	 
+	 public void writeImage(Image img, String filename)throws IOException {
+		 mybmpfile bmp = new mybmpfile();
+		 bmp.write(filename, img);
+	 }
+	 
+	 public Image readImage(String filename) throws IOException {
+		return null;
+	 }
 
 }
