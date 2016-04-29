@@ -243,6 +243,10 @@ class DrawGUI extends JFrame {
 					lasty = y;
 				}
 				
+				/**
+				 * Zeichnet eine Linie entlang der Punkte
+				 * @param points Eine Liste mit Koordinatenpunkten
+				 */
 				public void doDraw (List<Point> points) {
 					Graphics g = contentPaneGraphics;
 					lastx = points.get(0).x;
@@ -377,20 +381,37 @@ class DrawGUI extends JFrame {
 				}
 			}
 
+			/**
+			 * Zeichnet ein Rechteck
+			 * @param upper_left Obere linke Koordinate
+			 * @param lower_right Untere rechte Koordinate
+			 */
 			public void drawRectangle(Point upper_left, Point lower_right) {
 				rectDrawer.doDraw((int) upper_left.getX(), (int) upper_left.getY(), (int) lower_right.getX(),
 						(int) lower_right.getY(), contentPaneGraphics);
 			}
 			
+			/**
+			 * Zeichnet ein Oval
+			 * @param upper_left Obere linke Koordinate
+			 * @param lower_right Untere rechte Koordinate
+			 */
 			 public void drawOval(Point upper_left, Point lower_right) {
 				 ovalDrawer.doDraw((int) upper_left.getX(), (int) upper_left.getY(), (int) lower_right.getX(),
 							(int) lower_right.getY(), contentPaneGraphics);
 			 }
 			 
+			 /**
+			  * Zeichnet eine Linie anhand der angegebenen Punkte
+			  * @param points EIne Liste der Koordinatenpunkte
+			  */
 			 public void drawPolyLine(List<Point> points) {
 				scribbleDrawer.doDraw(points);
 			 }
 			 
+			 /**
+			  * Zeichnet eine Figur bestehend aus einer schwarzen Linie, einer grünen Linie, einem roten Oval und einem blauen Rechteck
+			  */
 			 public void autoDraw() {
 					Color oldColor = color;
 					
@@ -582,6 +603,11 @@ class DrawGUI extends JFrame {
 		BufferedImageGraphics.fillRect(0, 0, ourJFrame.getContentPane().getWidth(), ourJFrame.getContentPane().getHeight());
 	}
 
+	/**
+	 * Setzt die Zeichenfarbe auf new_color
+	 * @param new_color Die neue Zeichenfarbe
+	 * @throws ColorException
+	 */
 	private void setFGColor(String new_color) throws ColorException {
 		if (_colorList.containsKey(new_color)) {
 			color = _colorList.get(new_color);
@@ -590,6 +616,12 @@ class DrawGUI extends JFrame {
 		}
 	}
 
+	
+	/**
+	 * Setzt die Hintergrundfarbe auf new_color
+	 * @param new_color Die neue Hintergrundfarbe
+	 * @throws ColorException
+	 */
 	public void setBGColor(String new_color) throws ColorException {
 		HashMap<String, Color> white = new HashMap();
 		white.put("white", Color.white);
